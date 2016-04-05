@@ -1,0 +1,180 @@
+On Sat, 2007-01-06 at 18:14 +0000, halfmeg wrote:
+
+    > There seems to be a 25% improvement ( ESA 97 vs S370 77 ) on the AMD
+    > ESA BCTR test over S370.  I moved the testing to the Intel box to 
+    > verify and found not much difference in the same test ( ESA 73 vs 
+    > S370 70 ).
+    > 
+    > Any ideas as to what might be happening with BCTR on AMD ?  Either 
+    > ESA is not doing something it should ( likely considering the Intel 
+    > results ) or S370 needs to do something similiar to ESA to speed up a 
+    > little.  :-)
+
+It's really hard to say without looking at the emitted assembler.
+Unfortunately, doing something like `make general1.s' doesn't quite help
+because the flags `-fPIC -DPIC' are omitted, which makes a difference.
+I do the make then cut & paste the gcc command and add the flags.
+
+For bctr there should be no substantial differences between s370 and
+s390 modes (except successful branch per is more complicated on s390).
+
+    > I thought checking Ivan's performance graph would assist in isolating
+    > a possible date and/or impactor ( by cross-checking the change log 
+    > when performance measurements change ), but Ivan has implemented a 
+    > new JAVA chart which doesn't let one zoom-in on a recent week or 
+    > month.  Instead it zooms in on the middle of the chart, not so good 
+    > when the stuff you want to look at is December and the zoomed area is 
+    > August or so.  BTCR isn't one of the test results either.
+
+I've made a lot of performance related changes in the past and have been
+making performance related changes for the past couple of months.
+
+Ivan's graphs (see http://www.ivansoftware.com/nbench/ ) are useful but
+they still represent performance on a particular machine using a
+particular compiler. I have spent the past several days investigating
+the decline in the L instruction. I believe the this is related to the
+gcc v4 compiler (tho I'm not sure what compiler Ivan is using). On my
+machine (i686 using gcc 4.1.1) the fastpath instruction count for z900 L
+went from 94 instructions to 100 instructions. This was after a change
+that *simplified* the inlined routine that L calls, vfetch4. I'm still
+figuring this one out; most probably this is due to the rework of the
+optimizing code in gcc v4 and will eventually sort its own self out.
+
+There is a temptation to try to optimize the code in assembler for a
+particular (host) arch and particular compiler. This is a mistake.
+Performance should be improved by optimizing the algorithms, period.
+
+Generally, improving performance involves complicating less frequently
+executed code in order to simplify more frequently executed code. Doing
+so generally increases the overall complexity (not dissimilar to the 2nd
+law).
+
+For example, take a simple algorithm to perform s390 LM:
+
+if (r2 < r1) r2 += 16;
+for (i = r1; i <= r2; i++)
+regs->gr[i & 0x0f] = vfetch4(addr++);
+
+addr here is the virtual address of the 4 byte fields we are loading the
+registers from.
+
+The problem here is that each vfetch4 translates the virtual address to
+a machine addressable address. For s370 and s390 this is ~ 30
+instructions, for z900 (on 32 bit intel) this is ~40 instructions.
+That's if we have the address cached. Otherwise (for the first access
+on a page) we have to emulate DAT.
+
+We can speed the code up by obtaining the machine address of the
+operand. We have a macro MADDR to do this:
+
+U32 *main = MADDR(addr, ... );
+if (r2 < r1) r2 += 16;
+for (i = r1; i <= r2; i++)
+regs->gr[i & 0x0f] = *main++;
+
+Therefore, instead of calling vfetch4 (which in turn issues MADDR) for
+each register to be loaded, we do it once.
+
+Of course now we run into complications where LM may be loading
+registers across a page boundary. In this case we would need to do a
+second MADDR for the next page. There is a further complication if the
+storage area is not on a 4 byte boundary and the area crosses a page
+boundary. Then some poor slob register is going to have to be assembled
+from the last bytes of the first page and the first bytes of the second
+page.
+
+If you're keeping up so far, you are probably thinking `if the storage
+area crosses a page boundary you can't just willy nilly load some of the
+registers from the fist page and take a page fault on the second!!'
+Good point. What the original hercules code did was load the register
+values into an intermediate location, then load the registers after they
+were all collected from the intermediate location.
+
+The point I'm trying to make is that in this case there are 3 paths:
+
+1. the storage area does not cross a page boundary
+2a. page boundary is crossed but the storage area is word aligned
+2b. page boundary is crossed and the storage area is not aligned
+
+Experience has shown to me that it is best to code each path separately.
+Since we expect path 1 most of the time it is best not to muddle up the
+code for it to accommodate the other paths (ie don't make the `fastpath'
+slower).
+
+Today (and I mean today;-) the actual code looks like:
+
+/* Calculate number of bytes to load */
+n = (((r3 - r1) & 0xF) + 1) << 2;
+
+/* Calculate number of bytes to next boundary */
+m = 0x800 - ((VADR_L)effective_addr2 & 0x7ff);
+
+/* Address of operand beginning */
+p1 = (U32*)MADDR(effective_addr2, b2, regs, ACCTYPE_READ, regs->psw.pkey);
+
+if (likely(n <= m))
+{
+/* Boundary not crossed */
+n >>= 2;
+for (i = 0; i < n; i++)
+regs->GR_L((r1 + i) & 0xF) = fetch_fw (p1++);
+}
+else
+{
+/* Boundary crossed, get 2nd page address */
+effective_addr2 += m;
+effective_addr2 &= ADDRESS_MAXWRAP(regs);
+p2 = (U32*)MADDR(effective_addr2, b2, regs, ACCTYPE_READ, regs->psw.pkey);
+
+if (likely((m & 0x3) == 0))
+{
+/* Addresses are word aligned */
+m >>= 2;
+for (i = 0; i < m; i++)
+regs->GR_L((r1 + i) & 0xF) = fetch_fw (p1++);
+n >>= 2;
+for ( ; i < n; i++)
+regs->GR_L((r1 + i) & 0xF) = fetch_fw (p2++);
+}
+else
+{
+/* Worst case */
+U32 rwork[16];
+BYTE *b1, *b2;
+
+b1 = (BYTE *)&rwork[0];
+b2 = (BYTE *)p1;
+for (i = 0; i < m; i++)
+*b1++ = *b2++;
+b2 = (BYTE *)p2;
+for ( ; i < n; i++)
+*b1++ = *b2++;
+
+n >>= 2;
+for (i = 0; i < n; i++)
+regs->GR_L((r1 + i) & 0xF) = CSWAP32(rwork[i]);
+}
+}
+
+Just a note. We use 2048 as a boundary size (or page size) instead of
+4096 (when the arch supports it) due to a thing call `low address fetch
+protection override' which is where page 0 is fetch protected but a
+particular bit is set in a particular control reg saying we can access
+the first 2K anyways. Why don't we check to see if the address is
+x'1000' or above and then use 4K instead? We cross a 2K boundary (and
+not a 4K boundary) so many times. And so many times we don't. Turns
+out the number of times we don't times the number of instructions it
+takes to figure that out exceeds the number of extra instructions we
+execute by just using 2K.
+
+To summarize:
+1. True performance benefits come from optimizing algorithms, not
+assember code
+2. Code fast paths, intermediate paths and slow paths separately to
+keep the code for the faster paths clean from slower paths code.
+3. Don't always trust benchmark results ... this could be an anomaly
+due to the machine and/or compiler.
+
+So much for performance 101 ;-)
+
+Greg

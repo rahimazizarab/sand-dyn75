@@ -1,0 +1,85 @@
+In file included from slirp.h:9:0,
+                 from udp.cc:44:
+slirp_config.h:58:0: warning: "HAVE_UNISTD_H" redefined [enabled by default]
+ #define HAVE_UNISTD_H
+ ^
+In file included from slirp.h:8:0,
+                 from udp.cc:44:
+config.h:536:0: note: this is the location of the previous definition
+ #define HAVE_UNISTD_H 1
+ ^
+In file included from slirp.h:9:0,
+                 from udp.cc:44:
+slirp_config.h:61:0: warning: "HAVE_STDLIB_H" redefined [enabled by default]
+ #define HAVE_STDLIB_H
+ ^
+In file included from slirp.h:8:0,
+                 from udp.cc:44:
+config.h:420:0: note: this is the location of the previous definition
+ #define HAVE_STDLIB_H 1
+ ^
+In file included from slirp.h:9:0,
+                 from udp.cc:44:
+slirp_config.h:107:0: warning: "HAVE_STRING_H" redefined [enabled by default]
+ #define HAVE_STRING_H
+ ^
+In file included from slirp.h:8:0,
+                 from udp.cc:44:
+config.h:435:0: note: this is the location of the previous definition
+ #define HAVE_STRING_H 1
+ ^
+In file included from slirp.h:9:0,
+                 from udp.cc:44:
+slirp_config.h:167:0: warning: "HAVE_MEMMOVE" redefined [enabled by default]
+ #define HAVE_MEMMOVE
+ ^
+In file included from slirp.h:8:0,
+                 from udp.cc:44:
+config.h:306:0: note: this is the location of the previous definition
+ #define HAVE_MEMMOVE 1
+ ^
+In file included from slirp.h:154:0,
+                 from udp.cc:44:
+ip.h:203:18: error: field ‘ih_mbuf’ has incomplete type
+  struct mbuf_ptr ih_mbuf; /* backpointer to mbuf */
+                  ^
+ip.h:234:12: error: field ‘ipf_ip’ has incomplete type
+  struct ip ipf_ip;
+            ^
+In file included from tcp_var.h:39:0,
+                 from tcp.h:70,
+                 from slirp.h:155,
+                 from udp.cc:44:
+tcpip.h:43:17: error: field ‘ti_i’ has incomplete type
+  struct  ipovly ti_i;  /* overlaid ip structure */
+                 ^
+In file included from slirp.h:159:0,
+                 from udp.cc:44:
+udp.h:57:25: error: field ‘ui_i’ has incomplete type
+          struct  ipovly ui_i;            /* overlaid ip structure */
+                         ^
+In file included from slirp.h:160:0,
+                 from udp.cc:44:
+ip_icmp.h:82:14: error: field ‘idi_ip’ has incomplete type
+    struct ip idi_ip;
+              ^
+In file included from slirp.h:172:0,
+                 from udp.cc:44:
+bootp.h:102:15: error: field ‘ip’ has incomplete type
+     struct ip ip;
+               ^
+In file included from slirp.h:173:0,
+                 from udp.cc:44:
+tftp.h:16:13: error: field ‘ip’ has incomplete type
+   struct ip ip;
+             ^
+tftp.h:40:5: error: ‘bx_bool’ does not name a type
+     bx_bool  write;
+     ^
+In file included from udp.cc:44:0:
+slirp.h:208:18: error: ‘packed’ was not declared in this scope
+ } GCC_ATTRIBUTE((packed));
+                  ^
+slirp.h:256:16: error: field ‘ipq’ has incomplete type
+     struct ipq ipq;         /* ip reass. queue */
+                ^

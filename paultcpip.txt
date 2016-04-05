@@ -1,0 +1,171 @@
+Hi Hercules developers.
+
+I've made a foray into adding Hercules-specific
+TCP/IP support for MVS 3.8j. I've got the code fragment
+below (basically, intercepting SVC 233), and was
+wondering if you could give some general guidelines
+on macros to use, where to place code etc, before
+I continue.
+
+I realise it probably won't meet the standards
+required to be incorporated into Hercules proper,
+but if there's some relatively small changes that
+I can make to get closer to those standards, then
+that would be great.
+
+Basically the design is - SVC 233 is issued with
+R1 pointing to some parameters, and R4 pointing
+to some buffer that Hercules can write some data
+to, and I need to translate those addresses,
+do some processing with the data at those addresses,
+then write the results back into those addresses.
+
+So I'm hoping to use the right data types so that
+it works on 64-bit hosts as well as 32bit hosts
+and as well as on big-endian hosts and making use
+of the official macros wherever possible.
+
+Thanks. Paul.
+
+
+
+Index: general2.c
+===================================================================
+RCS file: c:\cvsroot/hercules/general2.c,v
+retrieving revision 1.4
+retrieving revision 1.16
+diff -c -r1.4 -r1.16
+*** general2.c 11 Jan 2009 02:02:42 -0000 1.4
+--- general2.c 23 Aug 2009 08:47:13 -0000 1.16
+***************
+*** 113,118 ****
+--- 113,119 ----
+#include "opcode.h"
+#include "inline.h"
+#include "clock.h"
++ #include "sllib.h"
+
+
+/*-------------------------------------------------------------------*/
+***************
+*** 1367,1372 ****
+--- 1368,1468 ----
+}
+
+
++ #ifndef EZAHANDLER_DEFINED
++ #define EZAHANDLER_DEFINED
++ /* If we have received an EZASOKET dummy SVC, then R1 will
++ point to the EZASOKET parameters, and R4 will have an
++ address of a 1000-byte area of addressable memory. This
++ is typically used to store a hostent structure. It is
++ beyond Hercules's scope to know where this memory came
++ from. However, it will be checked to make sure it is
++ writable. Not sure what happens if the buffer crosses
++ a page boundary with one page swapped out, but it probably
++ won't be pretty. */
++
++ static void ezahandler(REGS *regs)
++ {
++ char keywd[50];
++ UINT32 *parms;
++ BYTE *p;
++ UINT32 new;
++ BYTE *gstor; /* global storage */
++
++ /* we have some "global" storage available in R4 */
++ /* I haven't figured out what that "0" means either */
++ gstor = (BYTE *)MADDR (regs->GR_L(4), 0, regs, ACCTYPE_READ, regs->psw.pkey);
++
++ /* get parameters from R1 */
++ parms = (UINT32 *)MADDR (regs->GR_L(1), 0, regs, ACCTYPE_READ, regs->psw.pkey);
++
++ /* now get parameter 1 to EZASOKET, which is the function required */
++ p = (BYTE *)&parms[0];
++ /* There's bound to be a macro that would do this, but I
++ didn't notice it in hmacros */
++ new = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
++ p = MADDR(new, 0, regs, ACCTYPE_READ, regs->psw.pkey);
++
++ /* finally we're pointing to the EBCDIC string */
++ /* time to convert to ASCII. Although we could do the */
++ /* comparison in EBCDIC */
++
++ strncpy(keywd, p, sizeof keywd);
++ keywd[sizeof keywd - 1] = '\0';
++ sl_etoa(NULL, keywd, strlen(keywd));
++
++ /* so far we only support this one function */
++ if (strcmp(keywd, "GETHOSTBYNAME") == 0)
++ {
++ char www[1000];
++ struct hostent *h;
++
++ /* now we need parameter 3, which is a URL to look up */
++ p = (BYTE *)&parms[2];
++ new = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
++ p = MADDR(new, 0, regs, ACCTYPE_READ, regs->psw.pkey);
++
++ /* finally we are pointing to the address */
++ /* convert to ASCII then do the proper call */
++
++ strncpy(www, p, sizeof www);
++ keywd[sizeof www - 1] = '\0';
++ sl_etoa(NULL, www, strlen(www));
++ h = gethostbyname(www);
++
++ /* we use the global storage to store an MVS-style
++ hostent */
++
++ /* we are expecting an address to be filled in. If
++ you look at socket.h in tcpip380 (ie *not* in
++ Hercules), you will be able to match up offsets.
++ Copy the data straight in */
++ memcpy(gstor + 200 + 200 + 2 + 2, h->h_addr, 4);
++
++ /* now their 4th parameter is an address pointer. They
++ need this filled in to point to that structure which
++ we have just created. So, it's simply to a pointer
++ to the global storage "the system" provided in R4. */
++
++ p = (BYTE *)&parms[3];
++ new = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
++ p = MADDR(new, 0, regs, ACCTYPE_WRITE, regs->psw.pkey);
++
++ /* Need to ensure that the address is given in
++ big-endian form. There's probably a macro for this
++ somewhere too. */
++ new = regs->GR_L(4);
++ p[0] = new >> 24;
++ p[1] = (new >> 16) & 0xff;
++ p[2] = (new >> 8) & 0xff;
++ p[3] = new & 0xff;
++
++ /* and that's a wrap */
++ }
++ return;
++ }
++ #endif
++
++
+/*-------------------------------------------------------------------*/
+/* 0A SVC - Supervisor Call [RR] */
+/*-------------------------------------------------------------------*/
+***************
+*** 1378,1383 ****
+--- 1474,1487 ----
+int rc; /* Return code */
+
+RR_SVC(inst, regs, i);
++
++ /* if we have an SVC and R2 is set to a magic number, then
++ this is actually a request from EZASOKET. */
++ if ((i == 233) && (regs->GR_L(2) == 0xcccccccc))
++ {
++ ezahandler(regs);
++ return;
++ }
+#if defined(FEATURE_ECPSVM)
+if(ecpsvm_dosvc(regs,i)==0)
+{
+

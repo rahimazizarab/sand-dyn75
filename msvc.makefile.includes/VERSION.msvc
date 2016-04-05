@@ -1,0 +1,120 @@
+# ***************************************************************************
+#     VERSION.msvc    (!INCLUDE ed by "makefile-dllmod.msvc")
+# --------------------------------------------------------------------------
+# (c) Copyright Roger Bowler, 2005-2012
+# --------------------------------------------------------------------------
+# $Id$
+#
+#  Handles defining the product VERSION strings
+#
+# ***************************************************************************
+
+!UNDEF fna
+!IF !DEFINED(VERSION) || !DEFINED(V1) || !DEFINED(V2) || !DEFINED(V3) || !DEFINED(V4)
+
+# The following logic determines the Hercules version number, attempts
+# to construct a pseudo-revision number using the git commit history,
+# and sets variables V1,V2,V3,V4 and VERSION
+
+# First extract the Hercules version number from the configure.ac file.
+# We scan the file looking for AM_INIT_AUTOMAKE=(hercules,x.y[.z]) # 
+# and we create a temporary file containing statements V1=x V2=y 
+# Finally we include the temporary file to set the variables V1,V2
+opt = "tokens=1-5 delims=(),. "
+fna = $(TEMP)\hercver$(BUILD_TYPE).txt
+cmd = @echo V1=%c >$(fna) && @echo V2=%d >>$(fna) 
+!IF ["for /f $(opt) %a in (configure.ac) do @if %a==AM_INIT_AUTOMAKE $(cmd)"] == 0
+!INCLUDE $(fna)
+!ELSE
+V1 = 0
+V2 = 0
+!ENDIF
+
+# If git.exe exists in the path, use the 'git log' command to count the 
+# number of commits (nnnn), and write V3=nnnn to the temporary file.
+# Then include the temporary file to set the variable V3
+opt="tokens=1 usebackq"
+cmd = for /f $(opt) %a in (`"git log --oneline | wc -l"`) do @echo V3=%a>$(fna)
+!IF ["for %I in (git.exe) do @if exist %~$$PATH:I $(cmd)"] == 0
+!INCLUDE $(fna)
+!ENDIF
+
+# If V3 is still not set, then set it to zero 
+!IF !DEFINED(V3) || "$(V3)" == ""
+V3 = 0
+!ENDIF
+
+# If date.exe exists in the path, write V4=yyddd to the temporary file.
+# Then include the temporary file to set the variable V4
+opt="tokens=1 usebackq"
+cmd = for /f $(opt) %a in (`"%~$$PATH:I" +%y%j`) do @echo V4=%a>$(fna)
+!IF ["for %I in (date.exe) do @if exist %~$$PATH:I $(cmd)"] == 0
+!INCLUDE $(fna)
+!ENDIF
+
+# If V4 is still not set, then set it to zero 
+!IF !DEFINED(V4) || "$(V4)" == ""
+V4 = 0
+!ENDIF
+
+# Set the version string
+VERSION = $(V1).$(V2)-sandhawk
+
+# Append the revision number to the version string
+!IF "$(V3)" != "0"
+VERSION = $(VERSION)-$(V3)
+!ENDIF
+
+!IF DEFINED(HERCVER)
+VERSION = $(HERCVER)
+!ENDIF
+
+!MESSAGE Hercules version number is $(VERSION) ($(V1).$(V2).$(V3).$(V4))
+VERSION = \"$(VERSION)\"
+
+!ELSE
+
+!MESSAGE VERSION = $(VERSION) ($(V1).$(V2).$(V3).$(V4))
+
+!ENDIF
+
+!IF DEFINED(CUSTOM_BUILD_STRING)
+!MESSAGE CUSTOM_BUILD_STRING = $(CUSTOM_BUILD_STRING)
+!ENDIF
+
+!MESSAGE
+
+#  The following logic determines the minimum version of Windows on which
+#  the application can run. The minimum version depends on both the target
+#  architecture and the version of Visual Studio used for the build. The
+#  APPVER and TARGETOS variables are set as required by Win32.Mak (SDK)
+
+# 
+#  32 bit : 
+#      VS < 9 : Win NT 4 & Win 9X (APPVER 4.0, TARGETOS BOTH)
+#      VS >= 9 : Win 2K (APPVER 5.0, TARGETOS WINNT)
+#  64 bit :
+#      Win 2K3 (APPVER 5.02, TARGETOS WINNT)
+# 
+
+
+!IF (("$(CPU)" == "AMD64") || ("$(CPU)" == "IA64"))
+
+APPVER   = 5.02
+TARGETOS = WINNT
+
+!ELSE # 32 bit build
+
+!IF $(vsversion) < 9
+
+APPVER   = 4.0
+TARGETOS = BOTH
+
+!ELSE # $(vsversion) >= 9
+
+APPVER   = 5.0
+TARGETOS = WINNT
+
+!ENDIF # vsversion test
+
+!ENDIF # 32/64 bit test

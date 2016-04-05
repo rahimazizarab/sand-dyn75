@@ -1,0 +1,2 @@
+git remote add * https://github.com/rahimazizarab/sandhawk-dyn75.git
+git push -u * master

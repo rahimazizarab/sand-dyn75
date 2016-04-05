@@ -1,0 +1,184 @@
+This version now protects against wild branches:
+
+
+Index: hercules/bldcfg.c
+diff -c hercules/bldcfg.c:1.1.1.1 hercules/bldcfg.c:1.3
+*** hercules/bldcfg.c:1.1.1.1 Sat Nov 17 00:44:26 2007
+--- hercules/bldcfg.c Fri Nov 23 23:55:10 2007
+***************
+*** 2220,2225 ****
+--- 2220,2227 ----
+initialize_lock (&sysblk.cpulock[i]);
+initialize_condition (&sysblk.sync_cond);
+initialize_condition (&sysblk.sync_bc_cond);
++ sysblk.s380 = (archmode == ARCH_370) && (mainsize > 64);
++
+
+#if defined(OPTION_FISHIO)
+InitIOScheduler // initialize i/o
+scheduler...
+Index: hercules/feat370.h
+diff -c hercules/feat370.h:1.1.1.1 hercules/feat370.h:1.4
+*** hercules/feat370.h:1.1.1.1 Sat Nov 17 00:44:26 2007
+--- hercules/feat370.h Fri Nov 23 23:53:54 2007
+***************
+*** 37,42 ****
+--- 37,43 ----
+#define FEATURE_S370E_EXTENDED_ADDRESSING
+#define FEATURE_TEST_BLOCK
+#define FEATURE_ECPSVM
++ #define FEATURE_BIMODAL_ADDRESSING
+
+#endif /*defined(OPTION_370_MODE)*/
+/* end of FEAT370.H */
+Index: hercules/feature.h
+diff -c hercules/feature.h:1.1.1.1 hercules/feature.h:1.8
+*** hercules/feature.h:1.1.1.1 Sat Nov 17 00:44:26 2007
+--- hercules/feature.h Thu Nov 29 18:25:54 2007
+***************
+*** 157,163 ****
+#define AMASK AMASK_L
+
+#define ADDRESS_MAXWRAP(_register_context) \
+! (AMASK24)
+
+#define ADDRESS_MAXWRAP_E(_register_context) \
+(AMASK31)
+--- 157,163 ----
+#define AMASK AMASK_L
+
+#define ADDRESS_MAXWRAP(_register_context) \
+! ((_register_context)->psw.AMASK)
+
+#define ADDRESS_MAXWRAP_E(_register_context) \
+(AMASK31)
+***************
+*** 791,797 ****
+/*
+* Accelerated lookup
+*/
+! #define MADDR(_addr, _arn, _regs, _acctype, _akey) \
+( \
+likely((_regs)->aea_ar[(_arn)]) \
+&& likely( \
+--- 791,797 ----
+/*
+* Accelerated lookup
+*/
+! #define MADDR2(_addr, _arn, _regs, _acctype, _akey) \
+( \
+likely((_regs)->aea_ar[(_arn)]) \
+&& likely( \
+***************
+*** 812,817 ****
+--- 812,831 ----
+) \
+)
+
++ #define MADDR(_addr, _arn, _regs, _acctype, _akey) \
++ ( (_regs->psw.amode && sysblk.s380 \
++ && ((_addr & 0x7f000000) != 0)) \
++ ? \
++ ( \
++ ((_addr & 0x7fffffff) < sysblk.mainsize) ? \
++ (_regs->mainstor + (_addr & 0x7fffffff)) : \
++ (_regs->dat.xcode = PGM_SEGMENT_TRANSLATION_EXCEPTION, \
++ _regs->program_interrupt (regs, regs->dat.xcode), 0) \
++ ) \
++ : \
++ MADDR2(_addr, _arn, _regs, _acctype, _akey) \
++ )
++
+/*
+* PER Successful Branch
+*/
+Index: hercules/hstructs.h
+diff -c hercules/hstructs.h:1.1.1.1 hercules/hstructs.h:1.4
+*** hercules/hstructs.h:1.1.1.1 Sat Nov 17 00:44:26 2007
+--- hercules/hstructs.h Fri Nov 23 23:53:54 2007
+***************
+*** 553,558 ****
+--- 553,559 ----
+int pcpu; /* Tgt CPU panel cmd &
+displ */
+int hercprio; /* Hercules process
+priority */
+int todprio; /* TOD Clock thread
+priority */
++ int s380; /* S/380 hacked architecture
+*/
+int cpuprio; /* CPU thread
+priority */
+int devprio; /* Device thread
+priority */
+int pgmprdos; /* Program product OS
+flag */
+Index: hercules/opcode.c
+diff -c hercules/opcode.c:1.1.1.1 hercules/opcode.c:1.3
+*** hercules/opcode.c:1.1.1.1 Sat Nov 17 00:44:26 2007
+--- hercules/opcode.c Tue Nov 20 18:33:04 2007
+***************
+*** 1953,1960 ****
+/*08*/ GENx370x___x___ (set_storage_key,RR,"SSK"),
+/*09*/ GENx370x___x___ (insert_storage_key,RR,"ISK"),
+/*0A*/ GENx370x390x900 (supervisor_call,RR_SVC,"SVC"),
+! /*0B*/ GENx___x390x900 (branch_and_set_mode,RR,"BSM"),
+! /*0C*/ GENx___x390x900 (branch_and_save_and_set_mode,RR,"BASSM"),
+/*0D*/ GENx370x390x900 (branch_and_save_register,RR,"BASR"),
+/*0E*/ GENx370x390x900 (move_long,RR,"MVCL"),
+/*0F*/ GENx370x390x900
+(compare_logical_character_long,RR,"CLCL"),
+--- 1953,1960 ----
+/*08*/ GENx370x___x___ (set_storage_key,RR,"SSK"),
+/*09*/ GENx370x___x___ (insert_storage_key,RR,"ISK"),
+/*0A*/ GENx370x390x900 (supervisor_call,RR_SVC,"SVC"),
+! /*0B*/ GENx370x390x900 (branch_and_set_mode,RR,"BSM"),
+! /*0C*/ GENx370x390x900 (branch_and_save_and_set_mode,RR,"BASSM"),
+/*0D*/ GENx370x390x900 (branch_and_save_register,RR,"BASR"),
+/*0E*/ GENx370x390x900 (move_long,RR,"MVCL"),
+/*0F*/ GENx370x390x900
+(compare_logical_character_long,RR,"CLCL"),
+Index: hercules/panel.c
+diff -c hercules/panel.c:1.1.1.1 hercules/panel.c:1.2
+*** hercules/panel.c:1.1.1.1 Sat Nov 17 00:44:26 2007
+--- hercules/panel.c Fri Nov 23 23:53:54 2007
+***************
+*** 414,419 ****
+--- 414,421 ----
+set_pos (1, 1);
+draw_text (" Hercules CPU : %");
+fill_text (' ', 30);
++ if (sysblk.s380) draw_text("S/380");
++ else
+draw_text ((char *)get_arch_mode_string(NULL));
+fill_text (' ', 38);
+set_color (COLOR_LIGHT_GREY, COLOR_BLUE );
+Index: hercules/msvc.makefile.includes/VERSION.msvc
+diff -c hercules/msvc.makefile.includes/VERSION.msvc:1.1.1.1
+hercules/msvc.makefile.includes/VERSION.msvc:1.2
+*** hercules/msvc.makefile.includes/VERSION.msvc:1.1.1.1 Sat
+Nov 17 00:44:28 2007
+--- hercules/msvc.makefile.includes/VERSION.msvc Fri Nov 23
+15:30:12 2007
+***************
+*** 21,27 ****
+# >>> Fish!! <<< If you move this again, please change the
+comment in
+# configure.ac so I can find it again! :-)
+
+! VERSION = \"3.05\"
+
+# The below VERSION digits values SHOULD match the ABOVE VERSION
+number.
+#
+--- 21,27 ----
+# >>> Fish!! <<< If you move this again, please change the
+comment in
+# configure.ac so I can find it again! :-)
+
+! VERSION = \"3.05:380-0.x\"
+
+# The below VERSION digits values SHOULD match the ABOVE VERSION
+number.
+#
+

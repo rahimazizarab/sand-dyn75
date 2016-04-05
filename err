@@ -1,0 +1,125 @@
+dyn75.c: In function 'My_Server':
+dyn75.c:52:17: warning: 'return' with no value, in function returning non-void [-Wreturn-type]
+                 return;
+                 ^
+dyn75.c:22:21: warning: variable 'pgmname' set but not used [-Wunused-but-set-variable]
+     char           *pgmname;             /* prog name in host format  */
+                     ^
+In file included from /usr/include/string.h:631:0,
+                 from dyn75.c:4:
+dyn75.c: In function 'get_host':
+dyn75.c:242:40: warning: argument to 'sizeof' in '__builtin_strncpy' call is the same expression as the destination; did you mean to provide an explicit length? [-Wsizeof-pointer-memaccess]
+      strncpy(keywd, he->h_name, sizeof keywd);
+                                        ^
+dyn75.c:242:6: warning: passing argument 1 of '__builtin_strncpy' discards 'const' qualifier from pointer target type [enabled by default]
+      strncpy(keywd, he->h_name, sizeof keywd);
+      ^
+dyn75.c:242:6: note: expected 'char *' but argument is of type 'const char *'
+dyn75.c:257:5: warning: format '%s' expects argument of type 'char *', but argument 2 has type 'char (*)[50]' [-Wformat=]
+     printf ("ip address  in DYN75.c  %s  ******  \n", &ipaddr);
+     ^
+dyn75.c:258:4: warning: function returns address of local variable [-Wreturn-local-addr]
+    return ipaddr;
+    ^
+dyn75.c: In function 's370_dyninst_opcode_75':
+dyn75.c:288:6: warning: pointer targets in assignment differ in signedness [-Wpointer-sign]
+    p = MADDR (regs->GR_L(4), 0, regs, ACCTYPE_READ, regs->psw.pkey);
+      ^
+dyn75.c:312:5: warning: format '%s' expects argument of type 'char *', but argument 2 has type 'char (*)[50]' [-Wformat=]
+     printf ("ip address  in DYN75.c  %s  ******  \n", &keywd);
+     ^
+dyn75.c:323:5: warning: format '%s' expects argument of type 'char *', but argument 2 has type 'char (*)[50]' [-Wformat=]
+     printf ("ip address  in DYN75.c  %s  ******  \n", &ipaddr);
+     ^
+dyn75.c:326:7: warning: pointer targets in assignment differ in signedness [-Wpointer-sign]
+     p = (BYTE *)MADDR(regs->GR_L(4), 0, regs, ACCTYPE_WRITE, regs->psw.pkey);
+       ^
+dyn75.c:328:1: warning: 'return' with a value, in function returning void [enabled by default]
+ return 0;
+ ^
+dyn75.c:271:15: warning: unused variable 'i' [-Wunused-variable]
+       long    i;
+               ^
+In file included from dyn75.c:335:0:
+dyn75.c: At top level:
+dyn75.c:14:6: error: redefinition of 'error'
+ void error(const char *msg)
+      ^
+dyn75.c:14:6: note: previous definition of 'error' was here
+ void error(const char *msg)
+      ^
+In file included from dyn75.c:335:0:
+dyn75.c:20:5: error: redefinition of 'My_Server'
+ int My_Server(int argc, char **argv)
+     ^
+dyn75.c:20:5: note: previous definition of 'My_Server' was here
+ int My_Server(int argc, char **argv)
+     ^
+In file included from dyn75.c:335:0:
+dyn75.c: In function 'My_Server':
+dyn75.c:52:17: warning: 'return' with no value, in function returning non-void [-Wreturn-type]
+                 return;
+                 ^
+In file included from dyn75.c:335:0:
+dyn75.c: In function 's390_dyninst_opcode_75':
+dyn75.c:288:6: warning: pointer targets in assignment differ in signedness [-Wpointer-sign]
+    p = MADDR (regs->GR_L(4), 0, regs, ACCTYPE_READ, regs->psw.pkey);
+      ^
+dyn75.c:312:5: warning: format '%s' expects argument of type 'char *', but argument 2 has type 'char (*)[50]' [-Wformat=]
+     printf ("ip address  in DYN75.c  %s  ******  \n", &keywd);
+     ^
+dyn75.c:323:5: warning: format '%s' expects argument of type 'char *', but argument 2 has type 'char (*)[50]' [-Wformat=]
+     printf ("ip address  in DYN75.c  %s  ******  \n", &ipaddr);
+     ^
+dyn75.c:326:7: warning: pointer targets in assignment differ in signedness [-Wpointer-sign]
+     p = (BYTE *)MADDR(regs->GR_L(4), 0, regs, ACCTYPE_WRITE, regs->psw.pkey);
+       ^
+dyn75.c:328:1: warning: 'return' with a value, in function returning void [enabled by default]
+ return 0;
+ ^
+dyn75.c:271:15: warning: unused variable 'i' [-Wunused-variable]
+       long    i;
+               ^
+In file included from dyn75.c:341:0:
+dyn75.c: At top level:
+dyn75.c:14:6: error: redefinition of 'error'
+ void error(const char *msg)
+      ^
+dyn75.c:14:6: note: previous definition of 'error' was here
+ void error(const char *msg)
+      ^
+In file included from dyn75.c:341:0:
+dyn75.c:20:5: error: redefinition of 'My_Server'
+ int My_Server(int argc, char **argv)
+     ^
+dyn75.c:20:5: note: previous definition of 'My_Server' was here
+ int My_Server(int argc, char **argv)
+     ^
+In file included from dyn75.c:341:0:
+dyn75.c: In function 'My_Server':
+dyn75.c:52:17: warning: 'return' with no value, in function returning non-void [-Wreturn-type]
+                 return;
+                 ^
+In file included from dyn75.c:341:0:
+dyn75.c: In function 'z900_dyninst_opcode_75':
+dyn75.c:288:6: warning: pointer targets in assignment differ in signedness [-Wpointer-sign]
+    p = MADDR (regs->GR_L(4), 0, regs, ACCTYPE_READ, regs->psw.pkey);
+      ^
+dyn75.c:312:5: warning: format '%s' expects argument of type 'char *', but argument 2 has type 'char (*)[50]' [-Wformat=]
+     printf ("ip address  in DYN75.c  %s  ******  \n", &keywd);
+     ^
+dyn75.c:323:5: warning: format '%s' expects argument of type 'char *', but argument 2 has type 'char (*)[50]' [-Wformat=]
+     printf ("ip address  in DYN75.c  %s  ******  \n", &ipaddr);
+     ^
+dyn75.c:326:7: warning: pointer targets in assignment differ in signedness [-Wpointer-sign]
+     p = (BYTE *)MADDR(regs->GR_L(4), 0, regs, ACCTYPE_WRITE, regs->psw.pkey);
+       ^
+dyn75.c:328:1: warning: 'return' with a value, in function returning void [enabled by default]
+ return 0;
+ ^
+dyn75.c:271:15: warning: unused variable 'i' [-Wunused-variable]
+       long    i;
+               ^
+make[2]: *** [dyn75.lo] Error 1
+make[1]: *** [all-recursive] Error 1
+make: *** [all] Error 2

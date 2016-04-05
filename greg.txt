@@ -1,0 +1,61 @@
+On Tue, 2008-08-19 at 17:16 +0000, michealbutz2002 wrote:
+
+    > I am a an Assembler internals Guy and am trying to expand my
+    > horizons   
+    > 
+    > I am trying to display MVS info e.g. some of the things in HSCCMD.C 
+    > 
+    > In a GUI front I did a Windows API CreateProcess to Create a Window 
+    > 32 WinMain app to display info displayed in DOS box from hsccmd.c 
+    > 
+    > 
+    > you have given me some idea of what I need to do 
+    > 
+    > let me see if this can help
+
+What Roger said. Stuff in mainstor is big-endian. Stuff in control
+blocks is usually host-endian (little-endian on intel). You should
+always know how many bytes you are fetching from mainstor (whereas on
+host you don't know if `void *ptr' is 4, 8 or some other number of
+bytes).
+
+To do virtual addressing, you should use the MADDR macro. The control
+regs (2 (primary) or 7 (secondary) or 13 (home) or etc) must be set up.
+The virtual address should probably be resolvable to a real address else
+you are going to take a page interrupt.
+
+Below is some code I wrote a while back that fits into an instruction.
+
+Bonus points to anyone that can explain what it does ;-)
+
+Extra bonus points if you can explain why this code shows you cannot
+necessarily trust your hardware vendor.
+
+Greg
+
+--- hercules-cvs/general2.c 2007-01-13 02:21:48.000000000 -0500
++++ hercules/general2.c 2007-02-04 13:03:06.000000000 -0500
+@@ -1373,6 +1373,24 @@
+}
+#endif
+
++ if (i == 131 && sysblk.stepaddr[0] == 131)
++ {
++ BYTE *mn = NULL;
++ ARCH_DEP(display_inst)(regs, inst);
++ if (regs->GR_L(1))
++ mn = MADDR(regs->GR_L(1),0,regs,ACCTYPE_READ,0);
++ else if (regs->GR_L(0))
++ {
++ VADR p;
++ p = fetch_fw(MADDR(regs->GR_L(0)+4,0,regs,ACCTYPE_READ,0)); // SAFP
++ if (p && fetch_hw(MADDR(p+0x0c,0,regs,ACCTYPE_READ,0)) == 0x0005)
++ mn = MADDR(p + fetch_hw(MADDR(p+0x08,0,regs,ACCTYPE_READ,0)),
++ 0,regs,ACCTYPE_READ,0);
++ }
++ if (mn && (mn[3] & 0x80) == 0x00)
++ mn[3] |= 0x08;
++ }
++
+/* Point to PSA in main storage */
+psa = (void*)(regs->mainstor + px);

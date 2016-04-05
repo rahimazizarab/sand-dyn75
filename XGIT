@@ -1,0 +1,7 @@
+echo  #1947Leest
+echo "# sandhawk-dyn75" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git remote add origin https://github.com/rahimazizarab/sandhawk-dyn75.git
+git push -u origin master

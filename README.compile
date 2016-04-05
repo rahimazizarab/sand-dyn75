@@ -1,0 +1,8 @@
+
+	git clone git://github.com/s390guy/hercules-390.git
+	cd hercules-390
+	./autogen.sh
+	./configure --enable-cckd-bzip2 --enable-regina-rexx
+	make
+	sudo make install
+

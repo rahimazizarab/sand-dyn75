@@ -1,0 +1,78 @@
+aul, you are running into the very challenges I had starting out. It
+would be great if Hercules had a coding guide. It doesn't and all of
+this is scattered all over the place. Even if you understand the
+mainframe, figuring out how to do these things in Hercules is a
+challenge. So, here goes, hoping it helps:
+
+Check out vstore.h. It will do the heavy lifting for guest storage
+accesses. For the arn argument use USE_REAL_ADDR or USE_PRIMARY_SPACE.
+Access exceptions and protections are automatically handled. hstruct.h
+and feature.h provide macros for guest register access. If you use the
+w prefixed macros/functions address wrapping will also be handled,
+strongly recommended. Interesting Hercules failures can result.
+
+Use RADR for guest architecture sensitive code and specify architecture
+sensitive code using ARCH_DEP(function_name) and use the two additional
+includes at the end to compile the architecture flavor of each
+instruction. See vm.c for examples of how to have both architecture
+independent functions and architecture dependent functions in the same
+module.
+
+For addresses in registers, use GR_A and SET_GR_A. These macros take
+into consideration the current addressing mode and architecture for an
+address in a register. These must be used in ARCH_DEP functions.
+
+My general strategy is to use vstore.h vfetchc to move a guest structure
+into a structure in the local function storage. (Note the
+xfetchc/xstorec are designed to move a maximum of 256 bytes at a time.
+And the number of bytes is minus 1, ala the length field of an MVC
+instruction.) Then use FETCH_HW, FETCH_FW or FETCH_DW to extract
+values out of this local structure. You can use BYTE, HWORD, FWORD,
+DBLWORD or QWORD types to define fields within this structure for use
+with FETCH_xW macros. To move data back to the guest, I do the
+reverse. Use STORE_XX to place the value into a structure destined for
+guest storage. And when completed, wstorec to move the structure into
+guest storage. This is exactly what you are wanting to do.
+
+If your goal is to have this ultimately included in Hercules, I would
+recommend a different approach for integrating this into Hercules.
+Rather than intercepting the SVC number in the SVC instruction code, use
+a DIAGNOSE code. This will require that a small SVC be created within
+MVS 3.8j to issue the DIAGNOSE received from the problem state program.
+Also rather than incorporating your code directly in diagnose.c, call a
+separate module. You can see how this is done in diagnose.c. Any
+available DIAGNOSE code between X'100' to X'1FC' is probably safe to
+use. IBM does not use these for VM so there can not be a clash in the
+future for any new VM DIAGNOSE code Hercules wants to emulate. (There
+could still be clash with hypervisor codes, but we would deal with that
+if it occurred.) I would also suggest that you name the module
+"mvsxxxx" similar to how the VM DIAGNOSE support is in modules that
+start with "vm."
+
+If it is easier to get it working with the current design, Hercules
+intercepting the SVC code, then I would suggest continuing on that path
+but moving the code into a separate module. It will then be much easier
+to move to a DIAGNOSE later. I know you may need someone to assist on
+the MVS SVC, at least you did for the storage management SVC
+enhancements used by GCCMVS. Someone could be doing that in parallel to
+your testing. The DIAGNOSE doesn't have to become a show stopper in the
+overall process.
+
+There are some considerations to adding a new module for building on
+UNIX variant platforms vs. Microsoft. Fish can likely provide
+assistance on Microsoft. I know what needs to be done on UNIX. I
+stumbled getting the DIAGNOSE X'250' module to build on Microsoft for
+the nightly snapshots, Roger kindly came to the rescue and did a little
+tweaking. Mainly compiler and OS differences between gcc/Linux and
+Microsoft.
+
+This should also be a FEATURE handled in the usual way. For example,
+FEATURE_EZASOCKET.
+
+Good luck with this. It is a worthwhile endeavor. You aren't timid
+about diving into the code, so most answers can be found by doing that.
+It isn't always easy to figure out which code to look at, though. Post
+questions that you can't find the answer to or know where to look and
+someone will likely try to help.
+
+Which manual are you using for the EZASOCKET interface?
